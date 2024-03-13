@@ -3,6 +3,7 @@
 
 import os
 import tkinter as tk
+from tkinter import messagebox
 from typing import Callable
 import Setting
 import GameEngine
@@ -15,8 +16,9 @@ class Application(tk.Frame):
         self.aff = None
         self.time = (0, 0)
 
-        master.title(title)
-        master.geometry(Setting.data.get_geometry())
+        self.master.protocol("WM_DELETE_WINDOW", lambda:self.delete_window())
+        self.master.title(title)
+        self.master.geometry(Setting.data.get_geometry(False, "Field"))
         self.menu_function = {
             "start": self.start_timer,
             "stop": self.stop_timer,
@@ -26,11 +28,17 @@ class Application(tk.Frame):
         self.select_menu = tk.Menu(self.menu, tearoff=0)
         self.select_menu.add_command(
             label="デッキコードから読み込み",
-            command=lambda: self.online_create_window.create_new_window()
+            command=lambda: [
+                self.end(),
+                self.online_create_window.create_new_window()
+            ]
         )
         self.select_menu.add_command(
             label="ローカルファイルから読み込み",
-            command=lambda: self.local_create_window.create_new_window()
+            command=lambda: [
+                self.end(),
+                self.local_create_window.create_new_window()
+            ]
         )
         self.menu.add_command(
             label="開始",
@@ -45,20 +53,38 @@ class Application(tk.Frame):
             menu=self.select_menu
         )
         self.menu.add_command(
-            label=" << "
+            label=" << ",
+            command=lambda: self.game_engine.turn_minus()
         )
         self.menu.add_command(
-            label=" >> "
+            label=" >> ",
+            command=lambda: self.game_engine.turn_plus()
         )
         self.menu.add_command(
             label="設定"
         )
-        master.config(menu=self.menu)
+        self.master.config(menu=self.menu)
 
         self.game_engine = GameEngine.Master(self.master)
+        self.enemy_window = EnemyWindow()
         self.online_create_window = OnlineDeckWindow(self.game_engine, self.title_update)
-        self.local_create_window = LocalDeckWindow(self.game_engine, self.title_update)
+        self.local_create_window = LocalDeckWindow(self.game_engine, self.title_update, self.enemy_window)
         self.game_engine.stand_by()
+        self.master.bind("<Configure>", lambda e: self.window_resized())
+
+    def delete_window(self):
+        ret = messagebox.askyesno(
+            title="Information",
+            message="Applicationを終了しますか？"
+        )
+        if ret:
+            self.master.destroy()
+
+    def window_resized(self):
+        window_data = self.master.geometry()
+
+    def get_geometry(self) -> str:
+        return self.master.geometry()
 
     def title_update(self):
         """
@@ -80,12 +106,16 @@ class Application(tk.Frame):
         """
         if self.game_engine.card_list.check():
             self.game_engine.start()
+            if self.enemy_window.window_check():
+                self.enemy_window.game_engine.start()
             self.start_timer()
         else:
             print("カードリストの枚数が不正です")
 
     def end(self):
         self.stop_timer()
+        if self.enemy_window.window_check():
+            self.enemy_window.game_engine.end()
         self.game_engine.end()
 
     def start_timer(self):
@@ -99,7 +129,7 @@ class Application(tk.Frame):
         if self.aff is not None:
             self.after_cancel(self.aff)
         self.aff = None
-        self.title_add("")
+        self.master.title(self.title + " 選択デッキ: " + self.game_engine.card_list.name)
 
     def _timer(self):
         self.time = (self.time[0], self.time[1]+1)
@@ -144,6 +174,7 @@ class OnlineDeckWindow(NewWindow):
 
     def create(self):
         super().create()
+        self.window.resizable(0, 0)
         self.window.geometry("400x100")
         entry_label = tk.Label(
             self.window,
@@ -183,14 +214,14 @@ class OnlineDeckWindow(NewWindow):
     def close(self):
         super().close()
         self.call()
-        self.game_engine.stand_by()
 
 
 class LocalDeckWindow(NewWindow):
-    def __init__(self, game_engine, call: Callable):
+    def __init__(self, game_engine, call: Callable, enemy_window):
         super().__init__()
         self.call = call
         self.game_engine: GameEngine.Master = game_engine
+        self.enemy_window: EnemyWindow = enemy_window
         self.title = "ローカルファイルから読み込み"
         self.dir = "Deck"
         self.image = Setting.container.create_deck_image(
@@ -202,7 +233,6 @@ class LocalDeckWindow(NewWindow):
         self.dir = "Deck"
         super().close()
         self.call()
-        self.game_engine.stand_by()
 
     def filename_list_create(self) -> list[str]:
         deck_files = [deck for deck in os.listdir(self.dir) if deck != "blank.txt"]
@@ -215,6 +245,12 @@ class LocalDeckWindow(NewWindow):
 
     def create(self):
         super().create()
+        self.window.resizable(0, 0)
+        self.image = Setting.container.create_deck_image(
+            [],
+            (Setting.data.card_size[0]//2, Setting.data.card_size[1]//2)
+        )
+        self.game_engine.card_list_reset()
         window_size = (
             Setting.data.card_size[0] * 12 // 2,
             Setting.data.card_size[1] * 5 // 2
@@ -238,7 +274,7 @@ class LocalDeckWindow(NewWindow):
             )
         deck_list_box.grid(row=1, column=0, sticky=tk.N + tk.S)
         scroll.grid(row=1, column=1, sticky=tk.N + tk.S)
-        scroll["command"]=deck_list_box.yview
+        scroll["command"] = deck_list_box.yview
         deck_list_box.bind("<<ListboxSelect>>", lambda e: listbox_current(deck_list_box.curselection()))
         deck_list_box.bind("<Double-Button-1>",)
         for num, deck in enumerate(self.filename_list_create()):
@@ -248,14 +284,36 @@ class LocalDeckWindow(NewWindow):
         right_frame.pack(side=tk.LEFT)
         submit_button = tk.Button(
             right_frame,
-            text="決定"
+            text="決定",
+            command=self.close
         )
         submit_button.grid(row=0, column=0, padx=5, pady=2)
+        deck_code_frame = tk.Frame(
+            right_frame
+        )
+        deck_label = tk.Label(
+            deck_code_frame,
+            text="デッキコード"
+        )
+        deck_label.grid(row=0, column=0)
+        deck_code_frame.grid(row=0, column=1)
         deckcode_entry = tk.Entry(
-            right_frame,
+            deck_code_frame,
             width=30
         )
         deckcode_entry.grid(row=0, column=1, padx=5)
+        deck_code_copy_button = tk.Button(
+            deck_code_frame,
+            text="クリップボードにコピー",
+            command=lambda: deck_code_copy()
+        )
+        deck_code_copy_button.grid(row=0, column=2)
+        enemy_window_button = tk.Button(
+            deck_code_frame,
+            text="このデッキを相手に一人回し",
+            command=lambda: create_enemy_window()
+        )
+        enemy_window_button.grid(row=0, column=3, padx=5)
         self.image_label = tk.Label(
             right_frame,
             image=self.image
@@ -289,7 +347,62 @@ class LocalDeckWindow(NewWindow):
             for num, deck in enumerate(self.filename_list_create()):
                 deck_list_box.insert(num, deck.replace(".txt", ""))
 
+        def deck_code_copy():
+            self.window.clipboard_clear()
+            self.window.clipboard_append(deckcode_entry.get())
 
+        def create_enemy_window():
+            index = deck_list_box.curselection()
+            name = deck_list_box.get(index)
+            self.enemy_window.create(f"{self.dir}/{name}.txt", name)
+
+
+class EnemyWindow(NewWindow):
+    def __init__(self):
+        super().__init__()
+        self.title = ""
+        self.menu = tk.Menu(self.window)
+        self.menu.add_command(
+            label=" << ",
+            command=lambda: self.game_engine.turn_minus()
+        )
+        self.menu.add_command(
+            label=" >> ",
+            command=lambda: self.game_engine.turn_plus()
+        )
+
+    def window_check(self) -> bool:
+        if self.window is not None:
+            return True
+        else:
+            return False
+
+    def create(self, enemy_filepath: str, title: str):
+        super().create()
+        self.window.protocol("WM_DELETE_WINDOW", lambda:self.delete_window())
+        self.window.config(menu=self.menu)
+        self.window.geometry(Setting.data.get_geometry(True, "Field"))
+        self.window.title(title)
+        self.window.bind("<Configure>", lambda e: self.window_resized())
+        self.game_engine = GameEngine.Master(self.window, True)
+        self.game_engine.load_local(enemy_filepath)
+        self.game_engine.stand_by()
+
+    def close(self):
+        self.game_engine.end()
+        self.window.destroy()
+        self.window = None
+
+    def delete_window(self):
+        ret = messagebox.askyesno(
+            title="Information",
+            message="一人回しを終了しますか？"
+        )
+        if ret:
+            self.close()
+
+    def window_resized(self):
+        window_data = self.master.geometry()
 
 
 

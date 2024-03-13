@@ -9,12 +9,15 @@ from bs4 import BeautifulSoup
 import io
 from PIL import Image, ImageTk, ImageDraw, ImageFont
 
+debug = False
+
 class Setting:
     def __init__(self):
         self.window_size: tuple[int] = None
         self.window_position :tuple[int] = None
         self.card_size: tuple[int] = None
         self.canvas_color: str = None
+        self.enemy_canvas_color: str = None
         self.text_font_path: str = "Misc/meiryo.ttc"
         self.number_font_path: str = "Misc/Molot.ttc"
 
@@ -33,21 +36,82 @@ class Setting:
             int(ini.get(section, "WINDOW_POSITION_X")),
             int(ini.get(section, "WINDOW_POSITION_Y"))
         )
+        self.enemy_window_position = (
+            int(ini.get(section, "ENEMY_WINDOW_POSITION_X")),
+            int(ini.get(section, "ENEMY_WINDOW_POSITION_Y"))
+        )
         self.card_size = (
             int(ini.get(section, "CARD_WIDTH")),
             int(ini.get(section, "CARD_HEIGHT"))
         )
         self.canvas_color: str = ini.get(section, "CANVAS_COLOR")
-        # self.canvas_color = "#008000"
+        self.enemy_canvas_color: str = ini.get(section, "ENEMY_CANVAS_COLOR")
 
-    def get_geometry(self) -> str:
+    # def get_geometry(self) -> str:
+    #     """
+    #     geometry取得
+    #     """
+    #     return f"{self.window_size[0]}x{self.window_size[1]}"+f"+{self.window_position[0]}+{self.window_position[1]}"
+
+    def get_geometry(self, enemy_flag: bool, object_name: str) -> str:
         """
         geometry取得
         """
-        return f"{self.window_size[0]}x{self.window_size[1]}"+f"+{self.window_position[0]}+{self.window_position[1]}"
+        window_size_x = self.window_size[0]
+        window_size_y = self.window_size[1]
+        position_x = self.window_position[0]
+        position_y = self.window_position[1]
+        if enemy_flag:
+            position_x = self.enemy_window_position[0]
+            position_y = self.enemy_window_position[1]
+        if object_name == "Field":
+            pass
+        elif object_name == "Hand":
+            window_size_y = self.card_size[1]
+            position_y += self.window_size[1] + 50
+        else:
+            position_x += 50
+            position_y += 50
+            if object_name == "Deck":
+                window_size_x = self.card_size[0] * 8
+                window_size_y = self.card_size[1] * 4
+            elif object_name == "Temp":
+                window_size_x = self.card_size[0] * 7
+                window_size_y = self.card_size[1]
+            elif object_name == "Trash":
+                window_size_x = self.card_size[0] * 8
+                window_size_y = self.card_size[1] * 4
+            elif object_name == "Side":
+                window_size_x = self.card_size[0] * 6
+                window_size_y = self.card_size[1]
+            elif object_name == "Lost":
+                window_size_x = self.card_size[0] * 8
+                window_size_y = self.card_size[1] * 2
+        return f"{window_size_x}x{window_size_y}+{position_x}+{position_y}"
 
-    def get_window_size(self) -> tuple[int]:
-        return (self.window_size[0], self.window_size[1])
+    def get_window_size(self, object_name: str) -> tuple[int]:
+        window_size_x = self.window_size[0]
+        window_size_y = self.window_size[1]
+        if object_name == "Field":
+            pass
+        elif object_name == "Hand":
+            window_size_y = self.card_size[1]
+        if object_name == "Deck":
+            window_size_x = self.card_size[0] * 8
+            window_size_y = self.card_size[1] * 4
+        elif object_name == "Temp":
+            window_size_x = self.card_size[0] * 7
+            window_size_y = self.card_size[1]
+        elif object_name == "Trash":
+            window_size_x = self.card_size[0] * 8
+            window_size_y = self.card_size[1] * 4
+        elif object_name == "Side":
+            window_size_x = self.card_size[0] * 6
+            window_size_y = self.card_size[1]
+        elif object_name == "Lost":
+            window_size_x = self.card_size[0] * 8
+            window_size_y = self.card_size[1] * 2
+        return (window_size_x, window_size_y)
 
     def get_card_size(self) -> tuple[int]:
         return (self.card_size[0], self.card_size[1])
@@ -56,6 +120,13 @@ class Setting:
         x = (self.card_size[0] // 2) * (col +1)
         y = self.card_size[1] * row
         return (x, y)
+
+    def get_canvas_color(self, flag: bool):
+        if flag:
+            return self.enemy_canvas_color
+        else:
+            return self.canvas_color
+
 
 
 class ImageContainer:
@@ -205,7 +276,7 @@ def create_deckid_list(deck_id: str) -> list[str]:
 def get_reverse_color(color: str):
     color = color.replace("#", "")
     r, g, b = map(lambda x: int(x, 16), (color[0]+color[1], color[2]+color[3], color[4]+color[5]))
-    rr, gg, bb = map(lambda x: format(255-x, "x"), (r, g, b))
+    rr, gg, bb = map(lambda x: format(255-x, "02x"), (r, g, b))
     return f"#{rr}{gg}{bb}"
 
 

@@ -13,23 +13,23 @@ class Card:
     """
     カードクラス
     """
-    def __init__(self, index: int, Card_id: str):
+    def __init__(self, index: int, card_id: str):
+        self.card_id = card_id
         self.id = f"id_{str(index)}"
-        filename = os.listdir(f"Card/{Card_id}")[0]
-        self.image = Setting.container.get(Card_id)
+        filename = os.listdir(f"Card/{card_id}")[0]
+        self.image = Setting.container.get(card_id)
         self.image_tk: ImageTk.PhotoImage
         self.check = False
         self.doku = False
         self.yakedo = False
         self.bad_stat = ""
+        self.tail_flag = False
         self.category, self.name = filename.replace(".jpg", "").split("_")
-        self.back_image_tk = ImageTk.PhotoImage(
-            Setting.container.get("System_Card").resize(Setting.data.get_card_size())
-        )
         if self.category == "ポケモン":
             self.hp = 0
         else:
             self.hp = None
+        self.move = False
         self._update_image_tk()
 
     def _get_index(self):
@@ -39,17 +39,25 @@ class Card:
         return self._get_index() < other._get_index()
 
     def card_tail(self):
-        self.image_tk = self.back_image_tk
+        self.tail_flag = True
+        self._update_image_tk()
 
     def card_reset(self):
+        """
+        カードを初期ステータスに戻す
+        """
         if self.hp is not None:
             self.hp = 0
         self.doku = False
         self.yakedo = False
         self.bad_stat = ""
         self.check = False
+        self.tail_flag = False
 
     def turn_reset(self):
+        """
+        ターン経過時の処理
+        """
         self.check = False
         self._update_image_tk()
 
@@ -86,51 +94,56 @@ class Card:
         return image
 
     def _update_image_tk(self):
-        image = self.image.copy().resize(Setting.data.get_card_size())
-        if self.hp is not None:
-            if self.doku:
-                stat_image = self._get_card_icon("doku")
-                image.paste(
-                    stat_image,
-                    (0, 0),
-                    mask=stat_image
-                )
-            if self.yakedo:
-                stat_image = self._get_card_icon("yakedo")
-                image.paste(
-                    stat_image,
-                    (Setting.data.card_size[0] // 3, 0),
-                    mask=stat_image
-                )
-            if self.bad_stat != "":
-                if self.bad_stat == "ねむり":
-                    stat_image = self._get_card_icon("nemuri")
-                elif self.bad_stat == "まひ":
-                    stat_image = self._get_card_icon("mahi")
-                elif self.bad_stat == "こんらん":
-                    stat_image = self._get_card_icon("konran")
-                image.paste(
-                    stat_image,
-                    (0, Setting.data.card_size[0] // 3),
-                    mask=stat_image
-                )
-            hp_image = Setting.container.create_text(self.hp, "white")
-            image.paste(
-                hp_image,
-                (
-                    image.size[0] - hp_image.size[0] -5,
-                    image.size[1] - hp_image.size[1] -5,
-                ),
-                mask=hp_image
+        if self.tail_flag:
+            self.image_tk = ImageTk.PhotoImage(
+                Setting.container.get("System_Card").resize(Setting.data.get_card_size())
             )
-        if self.check:
-            check_image = self._get_card_icon("check")
-            image.paste(
-                check_image,
-                (Setting.data.card_size[0] // 3 * 2, 0),
-                mask=check_image
-            )
-        self.image_tk = ImageTk.PhotoImage(image)
+        else:
+            image = self.image.copy().resize(Setting.data.get_card_size())
+            if self.hp is not None:
+                if self.doku:
+                    stat_image = self._get_card_icon("doku")
+                    image.paste(
+                        stat_image,
+                        (0, 0),
+                        mask=stat_image
+                    )
+                if self.yakedo:
+                    stat_image = self._get_card_icon("yakedo")
+                    image.paste(
+                        stat_image,
+                        (Setting.data.card_size[0] // 3, 0),
+                        mask=stat_image
+                    )
+                if self.bad_stat != "":
+                    if self.bad_stat == "ねむり":
+                        stat_image = self._get_card_icon("nemuri")
+                    elif self.bad_stat == "まひ":
+                        stat_image = self._get_card_icon("mahi")
+                    elif self.bad_stat == "こんらん":
+                        stat_image = self._get_card_icon("konran")
+                    image.paste(
+                        stat_image,
+                        (0, Setting.data.card_size[0] // 3),
+                        mask=stat_image
+                    )
+                hp_image = Setting.container.create_text(self.hp, "white")
+                image.paste(
+                    hp_image,
+                    (
+                        image.size[0] - hp_image.size[0] -5,
+                        image.size[1] - hp_image.size[1] -5,
+                    ),
+                    mask=hp_image
+                )
+            if self.check:
+                check_image = self._get_card_icon("check")
+                image.paste(
+                    check_image,
+                    (Setting.data.card_size[0] // 3 * 2, 0),
+                    mask=check_image
+                )
+            self.image_tk = ImageTk.PhotoImage(image)
 
 
 
@@ -328,3 +341,42 @@ class RetreatObject(CheckObject):
             Setting.data.card_size[0] + 60
         )
 
+
+class CardViewWindow:
+    """
+    複数windowを表示しないためにObject内の変数としてクラスを保持しておく
+    """
+    def __init__(self):
+        self.window: tk.Toplevel = None
+        self.canvas: tk.Canvas
+        self.image: ImageTk.PhotoImage
+
+    def close(self):
+        if self.window is not None:
+            self.window.destroy()
+            self.window = None
+
+    def window_create(self, card: Card):
+        if self.window is not None:
+            self.close()
+        image = Setting.container.get(card.card_id)
+        self.image = ImageTk.PhotoImage(image)
+        self.window = tk.Toplevel()
+        self.window.protocol("WM_DELETE_WINDOW", self.close)
+        self.window.title(card.name)
+        self.window.geometry(f"{image.size[0]}x{image.size[1]}")
+        canvas = tk.Canvas(
+            self.window,
+            width=image.size[0],
+            height=image.size[1],
+            bg=Setting.data.canvas_color
+        )
+        canvas.pack()
+        canvas.create_image(
+            0, 0,
+            anchor = "nw",
+            image = self.image,
+            tag=card.id
+        )
+
+card_view_window = CardViewWindow()
