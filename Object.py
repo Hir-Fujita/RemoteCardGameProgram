@@ -223,6 +223,13 @@ class Shuffle:
         self.aff = None
         self.angle = 0
 
+    def position_update(self):
+        self.position = (
+            Setting.data.window_size[0] - Setting.data.card_size[0],
+            Setting.data.card_size[1] + 10
+        )
+        self.view()
+
     def view(self):
         self.canvas.delete("System_Shuffle")
         self.canvas.create_image(
@@ -270,6 +277,9 @@ class CheckObject:
         self.flag = not self.flag
         self.view()
 
+    def position_update(self):
+        pass
+
     def view(self):
         if self.flag:
             self.image = ImageTk.PhotoImage(self.true_image)
@@ -301,6 +311,12 @@ class VstarObject(CheckObject):
             10
         )
 
+    def position_update(self):
+        self.position = (
+            Setting.data.window_size[0] - Setting.data.card_size[0] - Setting.data.card_size[1] - 10,
+            10
+        )
+        self.view()
 
 class EnergyObject(CheckObject):
     def __init__(self, canvas) -> None:
@@ -314,6 +330,13 @@ class EnergyObject(CheckObject):
             Setting.data.card_size[0] - 20
         )
 
+    def position_update(self):
+        self.position = (
+            Setting.data.window_size[0] - Setting.data.card_size[0] - Setting.data.card_size[1] - 10,
+            Setting.data.card_size[0] - 20
+        )
+        self.view()
+
 
 class SupportObject(CheckObject):
     def __init__(self, canvas) -> None:
@@ -326,6 +349,13 @@ class SupportObject(CheckObject):
             Setting.data.window_size[0] - Setting.data.card_size[0] - Setting.data.card_size[1] - 10,
             Setting.data.card_size[0] + 20
         )
+
+    def position_update(self):
+        self.position = (
+            Setting.data.window_size[0] - Setting.data.card_size[0] - Setting.data.card_size[1] - 10,
+            Setting.data.card_size[0] + 20
+        )
+        self.view()
 
 
 
@@ -341,6 +371,12 @@ class RetreatObject(CheckObject):
             Setting.data.card_size[0] + 60
         )
 
+    def position_update(self):
+        self.position = (
+            Setting.data.window_size[0] - Setting.data.card_size[0] - Setting.data.card_size[1] - 10,
+            Setting.data.card_size[0] + 60
+        )
+        self.view()
 
 class CardViewWindow:
     """

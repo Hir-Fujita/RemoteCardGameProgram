@@ -3,7 +3,7 @@
 
 import os
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, colorchooser
 from typing import Callable
 import Setting
 import GameEngine
@@ -19,11 +19,6 @@ class Application(tk.Frame):
         self.master.protocol("WM_DELETE_WINDOW", lambda:self.delete_window())
         self.master.title(title)
         self.master.geometry(Setting.data.get_geometry(False, "Field"))
-        self.menu_function = {
-            "start": self.start_timer,
-            "stop": self.stop_timer,
-            "config": self.setting_config
-        }
         self.menu = tk.Menu(self.master)
         self.select_menu = tk.Menu(self.menu, tearoff=0)
         self.select_menu.add_command(
@@ -61,7 +56,8 @@ class Application(tk.Frame):
             command=lambda: self.game_engine.turn_plus()
         )
         self.menu.add_command(
-            label="設定"
+            label="設定",
+            command=lambda: self.setting_window.create()
         )
         self.master.config(menu=self.menu)
 
@@ -71,6 +67,7 @@ class Application(tk.Frame):
         self.local_create_window = LocalDeckWindow(self.game_engine, self.title_update, self.enemy_window)
         self.game_engine.stand_by()
         self.master.bind("<Configure>", lambda e: self.window_resized())
+        self.setting_window = UserSettingWindow(self.setting_close)
 
     def delete_window(self):
         ret = messagebox.askyesno(
@@ -78,10 +75,23 @@ class Application(tk.Frame):
             message="Applicationを終了しますか？"
         )
         if ret:
+            Setting.data.save_ini()
             self.master.destroy()
 
     def window_resized(self):
         window_data = self.master.geometry()
+        window_x, window_data = window_data.split("x")
+        window_x = window_x
+        window_y, position_x, position_y = window_data.split("+")
+        Setting.data.window_size_set(False, (window_x, window_y, position_x, position_y))
+        self.game_engine.update()
+
+    def setting_close(self):
+        self.master.geometry(Setting.data.get_geometry(False, "Field"))
+        self.game_engine.update()
+        if self.enemy_window.window_check():
+            self.enemy_window.window.geometry(Setting.data.get_geometry(True, "Field"))
+            self.enemy_window.game_engine.update()
 
     def get_geometry(self) -> str:
         return self.master.geometry()
@@ -108,24 +118,24 @@ class Application(tk.Frame):
             self.game_engine.start()
             if self.enemy_window.window_check():
                 self.enemy_window.game_engine.start()
-            self.start_timer()
+            self._start_timer()
         else:
             print("カードリストの枚数が不正です")
 
     def end(self):
-        self.stop_timer()
+        self._stop_timer()
         if self.enemy_window.window_check():
             self.enemy_window.game_engine.end()
         self.game_engine.end()
 
-    def start_timer(self):
+    def _start_timer(self):
         print("start_timer")
         if self.aff is not None:
             self.after_cancel(self.aff)
         self.time = (0, 0)
         self._timer()
 
-    def stop_timer(self):
+    def _stop_timer(self):
         if self.aff is not None:
             self.after_cancel(self.aff)
         self.aff = None
@@ -137,9 +147,6 @@ class Application(tk.Frame):
             self.time = (self.time[0]+1, 0)
         self.title_add(f"  Time: {self.time[0]}分: {self.time[1]}秒")
         self.aff = self.after(1000, self._timer)
-
-    def setting_config(self):
-        print("setting_config")
 
 
 class NewWindow:
@@ -402,10 +409,102 @@ class EnemyWindow(NewWindow):
             self.close()
 
     def window_resized(self):
-        window_data = self.master.geometry()
+        window_data = self.window.geometry()
+        window_x, window_data = window_data.split("x")
+        window_x = window_x
+        window_y, position_x, position_y = window_data.split("+")
+        Setting.data.window_size_set(True, (window_x, window_y, position_x, position_y))
 
 
+class UserSettingWindow(NewWindow):
+    def __init__(self, close_func: Callable):
+        super().__init__()
+        self.title = "設定変更"
+        self.close_func = close_func
 
+    def create(self):
+        super().create()
+        self.window.resizable(0, 0)
+        self.window.title(self.title)
+        self.window.geometry("600x400")
+
+        top_frame = tk.Frame(self.window)
+        top_frame.pack()
+        player_canvas_color_frame = tk.Frame(top_frame)
+        player_canvas_color_frame.grid(row=0, column=0, padx=5)
+        player_canvas_button = tk.Button(
+            player_canvas_color_frame,
+            text="自分の背景色を変更",
+            command=lambda: self.color_changed("Player")
+        )
+        player_canvas_button.pack()
+        self.player_color_label = tk.Label(
+            player_canvas_color_frame,
+            bg=Setting.data.canvas_color,
+            width=10,
+            height=5
+        )
+        self.player_color_label.pack(padx=5, pady=5)
+        enemy_canvas_color_frame = tk.Frame(top_frame)
+        enemy_canvas_color_frame.grid(row=0, column=1, padx=5)
+        enemy_canvas_button = tk.Button(
+            enemy_canvas_color_frame,
+            text="相手の背景色を変更",
+            command=lambda: self.color_changed("Enemy")
+        )
+        enemy_canvas_button.pack()
+        self.enemy_color_label = tk.Label(
+            enemy_canvas_color_frame,
+            bg=Setting.data.enemy_canvas_color,
+            width=10,
+            height=5
+        )
+        self.enemy_color_label.pack(padx=5, pady=5)
+
+        bottom_frame = tk.Frame(self.window)
+        bottom_frame.pack()
+        set_button = tk.Button(
+            bottom_frame,
+            text="設定変更",
+            width=20,
+            height=2,
+            command=lambda: self.submit_close()
+        )
+        set_button.grid(row=0, column=0, padx=5, pady=5)
+        default_set_button = tk.Button(
+            bottom_frame,
+            text="デフォルト設定に戻す",
+            width=20,
+            height=2,
+            command=lambda: [
+                Setting.data.default_ini(),
+                self.setting_window_update(),
+                self.submit_close()
+            ]
+        )
+        default_set_button.grid(row=0, column=1, padx=5, pady=5)
+
+    def submit_close(self):
+        self.close_func()
+        super().close()
+
+    def setting_window_update(self):
+        self.player_color_label.config(
+            bg=Setting.data.canvas_color
+        )
+        self.enemy_color_label.config(
+            bg=Setting.data.enemy_canvas_color
+        )
+
+    def color_changed(self, key: str):
+        color = colorchooser.askcolor()
+        if key == "Player":
+            self.player_color_label.config(bg=color[1])
+            Setting.data.canvas_color = color[1]
+        elif key == "Enemy":
+            self.enemy_color_label.config(bg=color[1])
+            Setting.data.enemy_canvas_color = color[1]
+        self.window.lift()
 
 
 def run(name, ver):

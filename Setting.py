@@ -20,38 +20,58 @@ class Setting:
         self.enemy_canvas_color: str = None
         self.text_font_path: str = "Misc/meiryo.ttc"
         self.number_font_path: str = "Misc/Molot.ttc"
+        self.ini = configparser.SafeConfigParser()
 
     def setting_load(self, section: str):
         """
         iniファイルから設定を読み込む
         section引数にデフォルトかユーザー設定を指定する
         """
-        ini = configparser.SafeConfigParser()
-        ini.read("Setting.ini")
+        self.ini.read("Setting.ini")
         self.window_size = (
-            int(ini.get(section, "WINDOW_WIDTH")),
-            int(ini.get(section, "WINDOW_HEIGHT"))
+            int(self.ini.get(section, "WINDOW_WIDTH")),
+            int(self.ini.get(section, "WINDOW_HEIGHT"))
             )
         self.window_position = (
-            int(ini.get(section, "WINDOW_POSITION_X")),
-            int(ini.get(section, "WINDOW_POSITION_Y"))
+            int(self.ini.get(section, "WINDOW_POSITION_X")),
+            int(self.ini.get(section, "WINDOW_POSITION_Y"))
         )
         self.enemy_window_position = (
-            int(ini.get(section, "ENEMY_WINDOW_POSITION_X")),
-            int(ini.get(section, "ENEMY_WINDOW_POSITION_Y"))
+            int(self.ini.get(section, "ENEMY_WINDOW_POSITION_X")),
+            int(self.ini.get(section, "ENEMY_WINDOW_POSITION_Y"))
         )
         self.card_size = (
-            int(ini.get(section, "CARD_WIDTH")),
-            int(ini.get(section, "CARD_HEIGHT"))
+            int(self.ini.get(section, "CARD_WIDTH")),
+            int(self.ini.get(section, "CARD_HEIGHT"))
         )
-        self.canvas_color: str = ini.get(section, "CANVAS_COLOR")
-        self.enemy_canvas_color: str = ini.get(section, "ENEMY_CANVAS_COLOR")
+        self.canvas_color: str = self.ini.get(section, "CANVAS_COLOR")
+        self.enemy_canvas_color: str = self.ini.get(section, "ENEMY_CANVAS_COLOR")
 
-    # def get_geometry(self) -> str:
-    #     """
-    #     geometry取得
-    #     """
-    #     return f"{self.window_size[0]}x{self.window_size[1]}"+f"+{self.window_position[0]}+{self.window_position[1]}"
+    def default_ini(self):
+        print("初期設定に戻します")
+        self.setting_load("DEFAULT")
+        self.save_ini()
+
+    def save_ini(self):
+        self.ini.set("USER_SETTING", "CARD_WIDTH", str(self.card_size[0]))
+        self.ini.set("USER_SETTING", "CARD_HEIGHT", str(self.card_size[1]))
+        self.ini.set("USER_SETTING", "WINDOW_WIDTH", str(self.window_size[0]))
+        self.ini.set("USER_SETTING", "WINDOW_HEIGHT", str(self.window_size[1]))
+        self.ini.set("USER_SETTING", "WINDOW_POSITION_X", str(self.window_position[0]))
+        self.ini.set("USER_SETTING", "WINDOW_POSITION_Y", str(self.window_position[1]))
+        self.ini.set("USER_SETTING", "ENEMY_WINDOW_POSITION_X", str(self.enemy_window_position[0]))
+        self.ini.set("USER_SETTING", "ENEMY_WINDOW_POSITION_Y", str(self.enemy_window_position[1]))
+        self.ini.set("USER_SETTING", "CANVAS_COLOR", self.canvas_color)
+        self.ini.set("USER_SETTING", "ENEMY_CANVAS_COLOR", self.enemy_canvas_color)
+        with open("Setting.ini", "w") as f:
+            self.ini.write(f)
+
+    def window_size_set(self, enemy_flag: bool, data: tuple[str]):
+        self.window_size = (int(data[0]), int(data[1]))
+        if not enemy_flag:
+            self.window_position = (int(data[2]), int(data[3]))
+        else:
+            self.enemy_window_position = (int(data[2]), int(data[3]))
 
     def get_geometry(self, enemy_flag: bool, object_name: str) -> str:
         """
@@ -181,7 +201,7 @@ class ImageContainer:
         return image
 
     def create_deck_image(self, deck_list: list[str], size: tuple[int]) -> ImageTk.PhotoImage:
-        image = Image.new("RGB", (size[0]*12, size[1]*5), "green")
+        image = Image.new("RGB", (size[0]*12, size[1]*5), "gray")
         if len(deck_list) == 60:
             column = 0
             row = 0

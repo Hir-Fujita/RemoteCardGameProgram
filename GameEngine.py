@@ -327,6 +327,36 @@ class Master(GameSystem):
         if filepath:
             self.card_list.save(filepath)
 
+    def update(self):
+        self.canvas.config(
+            width=Setting.data.window_size[0],
+            height=Setting.data.window_size[1],
+            bg=Setting.data.canvas_color if not self.enemy_flag else Setting.data.enemy_canvas_color
+        )
+        if self.flag:
+            for _, obj in self.dic.items():
+                if obj.object_name != "Field":
+                    obj.position_update()
+                    obj.update()
+            self.vstar.position_update()
+            self.shuffle.position_update()
+            self.energy.position_update()
+            self.support.position_update()
+            self.retreat.position_update()
+            self.coin.position_update(
+                (
+                    Setting.data.card_size[0] + 10,
+                    10
+                )
+            )
+        else:
+            self.coin.position_update(
+            (
+                Setting.data.window_size[0] //2 - Setting.data.card_size[0] // 2,
+                Setting.data.window_size[1] //2 - Setting.data.card_size[0] // 2,
+            )
+        )
+
     def stand_by(self):
         self.flag = False
         self.canvas.delete("all")
@@ -662,7 +692,6 @@ class Master(GameSystem):
                 self.canvas.dtag("move", "move")
             self.canvas.delete("rect")
 
-
     def _double_button_1(self, event: tk.Event):
         self.canvas.delete("show_image")
         tag = self.find_tag(event)
@@ -672,7 +701,8 @@ class Master(GameSystem):
             else:
                 self.card_stat_update("check")
         else:
-            self.turn_next()
+            if self.flag:
+                self.turn_next()
 
     def _button_3(self, event: tk.Event):
         self.canvas.delete("show_image")
@@ -740,6 +770,9 @@ class ChildSystem(GameSystem):
 
     def get_geometry(self) -> str:
         return self.window.geometry()
+
+    def position_update(self):
+        pass
 
     def move_card(self, move_to, top: bool=False):
         card = self.find_card(self.tag[0])
@@ -909,6 +942,12 @@ class Hand(ChildSystem):
             Setting.data.window_size[1] - Setting.data.card_size[1]
         )
 
+    def position_update(self):
+        self.position = (
+            Setting.data.window_size[0] / 4,
+            Setting.data.window_size[1] - Setting.data.card_size[1]
+        )
+
     def create_window(self):
         super().create_window()
         self.window.bind("<Configure>", lambda e: self.window_resized())
@@ -986,6 +1025,12 @@ class Deck(ChildSystem):
         )
         self.deck_shuffle = deck_shuffle
 
+    def position_update(self):
+        self.position = (
+            Setting.data.window_size[0] - Setting.data.card_size[0],
+            0
+        )
+
     def close(self, flag: bool=False):
         super().close()
         if not flag:
@@ -1013,6 +1058,12 @@ class Temp(ChildSystem):
     def __init__(self, enemy_flag, move_card, add_turn, canvas):
         super().__init__(enemy_flag, move_card, add_turn, canvas)
         self.object_name = "Temp"
+        self.position = (
+            Setting.data.window_size[0] /4 *3 - Setting.data.card_size[0],
+            Setting.data.window_size[1] - Setting.data.card_size[1]
+        )
+
+    def position_update(self):
         self.position = (
             Setting.data.window_size[0] /4 *3 - Setting.data.card_size[0],
             Setting.data.window_size[1] - Setting.data.card_size[1]
@@ -1049,6 +1100,12 @@ class Trash(ChildSystem):
             Setting.data.window_size[1] - Setting.data.card_size[1]
         )
 
+    def position_update(self):
+        self.position = (
+            Setting.data.window_size[0] - Setting.data.card_size[0],
+            Setting.data.window_size[1] - Setting.data.card_size[1]
+        )
+
     def _create_menu(self):
         super()._create_menu()
         self._add_menu_command()
@@ -1059,6 +1116,12 @@ class Side(ChildSystem):
     def __init__(self, enemy_flag, move_card, add_turn, canvas):
         super().__init__(enemy_flag, move_card, add_turn, canvas)
         self.object_name = "Side"
+        self.position = (
+            0,
+            Setting.data.window_size[1] - Setting.data.card_size[1]
+        )
+
+    def position_update(self):
         self.position = (
             0,
             Setting.data.window_size[1] - Setting.data.card_size[1]
@@ -1078,6 +1141,9 @@ class Lost(ChildSystem):
     def __init__(self, enemy_flag, move_card, add_turn, canvas):
         super().__init__(enemy_flag, move_card, add_turn, canvas)
         self.object_name = "Lost"
+        self.position = (0, 0)
+
+    def position_update(self):
         self.position = (0, 0)
 
     def _create_menu(self):
