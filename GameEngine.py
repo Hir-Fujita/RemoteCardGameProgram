@@ -281,7 +281,7 @@ class Master(GameSystem):
         self.retreat = Object.RetreatObject(self.canvas)
         self.deck = Deck(self.enemy_flag, self.move_crad, self.add_turn, self.canvas, self.deck_shuffle)
         self.hand = Hand(self.enemy_flag, self.move_crad, self.add_turn, self.canvas, self.deck_shuffle)
-        self.temp = Temp(self.enemy_flag, self.move_crad, self.add_turn, self.canvas)
+        self.temp = Temp(self.enemy_flag, self.move_crad, self.add_turn, self.canvas, self.deck_shuffle)
         self.trash = Trash(self.enemy_flag, self.move_crad, self.add_turn, self.canvas)
         self.side = Side(self.enemy_flag, self.move_crad, self.add_turn, self.canvas)
         self.lost = Lost(self.enemy_flag, self.move_crad, self.add_turn, self.canvas)
@@ -433,6 +433,7 @@ class Master(GameSystem):
 
     def turn_plus(self):
         manager_data = self.turn_manager.plus()
+        print(manager_data["title"])
         for _, obj in self.dic.items():
             if obj.object_name != self.object_name:
                 obj.list = manager_data[obj.object_name].copy()
@@ -455,6 +456,7 @@ class Master(GameSystem):
 
     def turn_minus(self):
         manager_data = self.turn_manager.minus()
+        print(manager_data["title"])
         for _, obj in self.dic.items():
             if obj.object_name != self.object_name:
                 obj.list = manager_data[obj.object_name].copy()
@@ -1055,13 +1057,14 @@ class Deck(ChildSystem):
 
 
 class Temp(ChildSystem):
-    def __init__(self, enemy_flag, move_card, add_turn, canvas):
+    def __init__(self, enemy_flag, move_card, add_turn, canvas, deck_shuffle: Callable):
         super().__init__(enemy_flag, move_card, add_turn, canvas)
         self.object_name = "Temp"
         self.position = (
             Setting.data.window_size[0] /4 *3 - Setting.data.card_size[0],
             Setting.data.window_size[1] - Setting.data.card_size[1]
         )
+        self.deck_shuffle = deck_shuffle
 
     def position_update(self):
         self.position = (
@@ -1080,6 +1083,13 @@ class Temp(ChildSystem):
             command=lambda: self.move_card_all("Hand")
         )
         self.menu.add_command(
+            label="すべてデッキに戻してシャッフル",
+            command=lambda:[
+                self.move_card_all("Deck"),
+                self.deck_shuffle(),
+            ]
+        )
+        self.menu.add_command(
             label="デッキの上に戻す",
             command=lambda: self.move_card("Deck", True)
         )
@@ -1087,6 +1097,7 @@ class Temp(ChildSystem):
             label="デッキの下に戻す",
             command=lambda: self.move_card("Deck")
         )
+        
         self._add_menu_command()
 
 
@@ -1193,14 +1204,18 @@ class TurnManager:
         self.index += 1
         self.data.append(dic)
 
-    def plus(self) -> dict:
+    def plus(self) -> dict[str, list[Object.Card]]:
+        print("-------------------------")
         self.index += 1
         if self.index >= len(self.data)-1:
             self.index = len(self.data)-1
+        print(f"{self.index} 手目")
         return self.data[self.index]
 
-    def minus(self) -> dict:
+    def minus(self) -> dict[str, list[Object.Card]]:
+        print("-------------------------")
         self.index -= 1
         if self.index < 0:
             self.index = 0
+        print(f"{self.index} 手目")
         return self.data[self.index]
