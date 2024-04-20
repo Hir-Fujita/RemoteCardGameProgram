@@ -261,6 +261,10 @@ class ImageContainer:
         return image.crop(image.split()[-1].getbbox())
 
 def card_data_check():
+    if not os.path.isdir("Card"):
+        os.makedirs("Card")
+    if not os.path.isdir("Deck"):
+        os.makedirs("Deck")
     print("Cradフォルダの適合性確認")
     data_list = os.listdir("Card")
     count = 0
