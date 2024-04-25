@@ -16,9 +16,9 @@ class Card:
     def __init__(self, index: int, card_id: str):
         self.card_id = card_id
         self.id = f"id_{str(index)}"
-        filename = os.listdir(f"Card/{card_id}")[0]
         self.image = Setting.container.get(card_id)
         self.image_tk: ImageTk.PhotoImage
+        filename = os.listdir(f"Card/{card_id}")[0]
         self.check = False
         self.doku = False
         self.yakedo = False

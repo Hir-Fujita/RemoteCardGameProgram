@@ -9,7 +9,7 @@ import Setting
 import Application
 
 NAME = "RemoteCardGameProgram"
-VERSITON = "0.1"
+VERSITON = "0.2"
 
 def main():
     """
